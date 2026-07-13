@@ -1,21 +1,21 @@
+import Button from '@/components/ui/Button';
+import FormInput from '@/components/ui/FormInput';
+import { BorderRadius, BrandColors, FontFamily, Spacing } from '@/constants/theme';
+import { useAuth } from '@/context/AuthContext';
+import { Ionicons } from '@expo/vector-icons';
+import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  StyleSheet,
+  Text,
   TouchableOpacity,
-  Alert,
+  View,
 } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { BrandColors, Spacing, BorderRadius, FontFamily } from '@/constants/theme';
-import Button from '@/components/ui/Button';
-import FormInput from '@/components/ui/FormInput';
-import { useAuth } from '@/context/AuthContext';
 
 export default function SignupScreen() {
   const { userType } = useLocalSearchParams<{ userType: string }>();
@@ -46,7 +46,7 @@ export default function SignupScreen() {
     }
     setErrors({});
     setLoading(true);
-    const { error } = await signUp({
+    const { error, requiresVerification } = await signUp({
       email: email.trim(),
       password,
       firstName: firstName.trim(),
@@ -59,7 +59,18 @@ export default function SignupScreen() {
       Alert.alert('Sign up failed', error);
       return;
     }
-    router.replace('/login');
+    if (requiresVerification) {
+      router.replace({
+        pathname: '/(auth)/verify-email',
+        params: {
+          email: email.trim(),
+          password,
+          userType: userType ?? 'customer',
+        },
+      });
+      return;
+    }
+    router.replace('/(auth)/login');
   }
 
   return (

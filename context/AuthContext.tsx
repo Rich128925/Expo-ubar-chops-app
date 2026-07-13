@@ -25,15 +25,20 @@ type SignUpParams = {
   userType: string;
 };
 
+type AuthActionResult = {
+  error: string | null;
+  requiresVerification?: boolean;
+  email?: string;
+};
+
 type AuthContextValue = {
   user: AuthUser | null;
   accessToken: string | null;
   loading: boolean;
-  signIn: (
-    email: string,
-    password: string,
-  ) => Promise<{ error: string | null }>;
-  signUp: (params: SignUpParams) => Promise<{ error: string | null }>;
+  signIn: (email: string, password: string) => Promise<AuthActionResult>;
+  signUp: (params: SignUpParams) => Promise<AuthActionResult>;
+  verifyEmail: (email: string, otp: string) => Promise<{ error: string | null }>;
+  resendVerificationCode: (email: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshAuth: () => Promise<{ error: string | null; accessToken: string | null }>;
 };
@@ -47,6 +52,17 @@ const KEYS = {
 };
 
 const isWeb = Platform.OS === "web";
+
+function isVerificationRequiredError(error: { message?: string } | null | undefined) {
+  const message = error?.message?.toLowerCase() ?? "";
+  return (
+    message.includes("verify") ||
+    message.includes("verification") ||
+    message.includes("confirm") ||
+    message.includes("email not verified") ||
+    message.includes("email verification")
+  );
+}
 
 async function setItem(key: string, value: string) {
   if (!isWeb) {
@@ -158,12 +174,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signIn(
     email: string,
     password: string,
-  ): Promise<{ error: string | null }> {
+  ): Promise<AuthActionResult> {
     const { data, error } = await insforge.auth.signInWithPassword({
       email,
       password,
     });
-    if (error) return { error: error.message };
+    if (error) {
+      return {
+        error: error.message,
+        requiresVerification: isVerificationRequiredError(error),
+        email,
+      };
+    }
+
+    const requireEmailVerification = Boolean(
+      (data as { requireEmailVerification?: boolean } | undefined)?.requireEmailVerification,
+    );
+
+    if (data?.user?.emailVerified === false || requireEmailVerification) {
+      return {
+        error: "Please verify your email before signing in.",
+        requiresVerification: true,
+        email,
+      };
+    }
 
     const authUser: AuthUser = {
       id: data!.user.id,
@@ -181,9 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: null };
   }
 
-  async function signUp(
-    params: SignUpParams,
-  ): Promise<{ error: string | null }> {
+  async function signUp(params: SignUpParams): Promise<AuthActionResult> {
     const { email, password, firstName, lastName, phone, userType } = params;
     const { data, error } = await insforge.auth.signUp({
       email,
@@ -192,8 +224,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (error) return { error: error.message };
     if (data?.user) {
-      await insforge.auth.setProfile({ firstName, lastName, phone, userType });
+      try {
+        await insforge.auth.setProfile({ firstName, lastName, phone, userType });
+      } catch {
+        // Ignore profile update failures and continue with verification flow.
+      }
     }
+
+    if (data?.requireEmailVerification || data?.user?.emailVerified === false) {
+      await insforge.auth.resendVerificationEmail({ email });
+      return { error: null, requiresVerification: true, email };
+    }
+
+    return { error: null };
+  }
+
+  async function verifyEmail(email: string, otp: string): Promise<{ error: string | null }> {
+    const { data, error } = await insforge.auth.verifyEmail({ email, otp });
+    if (error) return { error: error.message };
+    if (!data?.user || !data?.accessToken) {
+      return { error: "Verification could not be completed." };
+    }
+
+    const authUser: AuthUser = {
+      id: data.user.id,
+      email: data.user.email,
+      profile: data.user.profile,
+    };
+
+    const accessTokenValue = data.accessToken;
+    const refreshTokenValue = data.refreshToken ?? "";
+    if (refreshTokenValue) {
+      await saveSession(authUser, accessTokenValue, refreshTokenValue);
+    } else {
+      await setItem(KEYS.user, JSON.stringify(authUser));
+      await setItem(KEYS.accessToken, accessTokenValue);
+      await removeItem(KEYS.refreshToken);
+    }
+    setUser(authUser);
+    setAccessToken(accessTokenValue);
+    return { error: null };
+  }
+
+  async function resendVerificationCode(email: string): Promise<{ error: string | null }> {
+    const { error } = await insforge.auth.resendVerificationEmail({ email });
+    if (error) return { error: error.message };
     return { error: null };
   }
 
@@ -231,6 +306,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         signIn,
         signUp,
+        verifyEmail,
+        resendVerificationCode,
         signOut,
         refreshAuth,
       }}

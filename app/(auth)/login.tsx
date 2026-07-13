@@ -1,21 +1,21 @@
+import Button from '@/components/ui/Button';
+import Divider from '@/components/ui/Divider';
+import FormInput from '@/components/ui/FormInput';
+import { BorderRadius, BrandColors, FontFamily, Spacing } from '@/constants/theme';
+import { useAuth } from '@/context/AuthContext';
+import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  StyleSheet,
+  Text,
   TouchableOpacity,
-  Alert,
+  View,
 } from 'react-native';
-import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BrandColors, Spacing, BorderRadius, FontFamily } from '@/constants/theme';
-import Button from '@/components/ui/Button';
-import FormInput from '@/components/ui/FormInput';
-import Divider from '@/components/ui/Divider';
-import { useAuth } from '@/context/AuthContext';
 
 export default function LoginScreen() {
   const { signIn } = useAuth();
@@ -40,8 +40,18 @@ export default function LoginScreen() {
     }
     setErrors({});
     setLoading(true);
-    const { error } = await signIn(email.trim(), password);
+    const { error, requiresVerification, email: verifiedEmail } = await signIn(
+      email.trim(),
+      password,
+    );
     setLoading(false);
+    if (requiresVerification) {
+      router.replace({
+        pathname: '/(auth)/verify-email',
+        params: { email: verifiedEmail ?? email.trim(), password },
+      });
+      return;
+    }
     if (error) {
       Alert.alert('Login failed', error);
       return;

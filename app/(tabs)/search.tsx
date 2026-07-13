@@ -15,8 +15,28 @@ export default function SearchScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: BrandColors.background },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: Spacing.xl },
-  text: { fontFamily: FontFamily.extraBold, fontSize: 24, color: BrandColors.textPrimary, marginBottom: 6 },
-  sub:  { fontFamily: FontFamily.regular, fontSize: 14, color: BrandColors.textSecondary },
+  safe: { 
+    flex: 1, 
+    backgroundColor: BrandColors.background 
+  },
+
+  center: {
+     flex: 1, 
+     justifyContent: 'center', 
+     alignItems: 'center', 
+     paddingHorizontal: Spacing.xl 
+    },
+
+  text: { 
+    fontFamily: FontFamily.extraBold, 
+    fontSize: 24, 
+    color: BrandColors.textPrimary, 
+    marginBottom: 6 
+  },
+
+  sub:  { 
+    fontFamily: FontFamily.regular, 
+    fontSize: 14, 
+    color: BrandColors.textSecondary 
+  },
 });
