@@ -3,7 +3,8 @@ import Divider from '@/components/ui/Divider';
 import FormInput from '@/components/ui/FormInput';
 import { BorderRadius, BrandColors, FontFamily, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
-import { getHomeRoute, normalizeUserType } from '@/lib/authRoutes';
+import { AppUserType, getHomeRoute, normalizeUserType } from '@/lib/authRoutes';
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -18,13 +19,20 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+const ROLE_OPTIONS: { label: string; userType: AppUserType; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { label: 'Customer', userType: 'customer', icon: 'person-outline' },
+  { label: 'Vendor', userType: 'vendor', icon: 'storefront-outline' },
+  { label: 'Rider', userType: 'rider', icon: 'bicycle-outline' },
+];
+
 export default function LoginScreen() {
   const params = useLocalSearchParams<{ userType?: string }>();
   const { signIn } = useAuth();
-  const selectedUserType = normalizeUserType(params.userType);
+  const initialRole = normalizeUserType(params.userType) ?? 'customer';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [selectedRole, setSelectedRole] = useState<AppUserType>(initialRole);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -51,7 +59,7 @@ export default function LoginScreen() {
     } = await signIn(
       email.trim(),
       password,
-      selectedUserType ?? undefined,
+      selectedRole,
     );
     setLoading(false);
     if (requiresVerification) {
@@ -60,7 +68,7 @@ export default function LoginScreen() {
         params: {
           email: verifiedEmail ?? email.trim(),
           password,
-          ...(selectedUserType ? { userType: selectedUserType } : {}),
+          userType: selectedRole,
         },
       });
       return;
@@ -91,6 +99,32 @@ export default function LoginScreen() {
           <View style={styles.header}>
             <Text style={styles.title}>Ubar Chops</Text>
             <Text style={styles.subtitle}>Enter your email and password</Text>
+          </View>
+
+          <View style={styles.roleCard}>
+            <Text style={styles.roleTitle}>Sign in as</Text>
+            <View style={styles.roleRow}>
+              {ROLE_OPTIONS.map((role) => {
+                const isActive = selectedRole === role.userType;
+                return (
+                  <TouchableOpacity
+                    key={role.userType}
+                    style={[styles.roleChip, isActive && styles.roleChipActive]}
+                    onPress={() => setSelectedRole(role.userType)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons
+                      name={role.icon}
+                      size={16}
+                      color={isActive ? BrandColors.primary : BrandColors.textSecondary}
+                    />
+                    <Text style={[styles.roleChipText, isActive && styles.roleChipTextActive]}>
+                      {role.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </View>
 
           {/* Form card */}
@@ -125,7 +159,7 @@ export default function LoginScreen() {
             <View style={styles.signupRow}>
               <Text style={styles.signupText}>New to Ubar Chops?</Text>
               <TouchableOpacity
-                onPress={() => router.push('/(auth)/select-role')}
+                onPress={() => router.push({ pathname: '/(auth)/signup', params: { userType: selectedRole } })}
                 activeOpacity={0.7}
               >
                 <Text style={styles.signupLink}>  Create account</Text>
@@ -166,6 +200,52 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.regular,
     fontSize: 15,
     color: BrandColors.textSecondary,
+  },
+  roleCard: {
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
+    backgroundColor: BrandColors.cardBg,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 20,
+    elevation: 4,
+  },
+  roleTitle: {
+    fontFamily: FontFamily.bold,
+    fontSize: 14,
+    color: BrandColors.textSecondary,
+    marginBottom: Spacing.sm,
+  },
+  roleRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+  },
+  roleChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: BrandColors.divider,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 8,
+    backgroundColor: BrandColors.background,
+  },
+  roleChipActive: {
+    borderColor: BrandColors.primary,
+    backgroundColor: BrandColors.iconCircleBg,
+  },
+  roleChipText: {
+    fontFamily: FontFamily.medium,
+    fontSize: 13,
+    color: BrandColors.textSecondary,
+  },
+  roleChipTextActive: {
+    color: BrandColors.primary,
   },
   card: {
     marginHorizontal: Spacing.md,

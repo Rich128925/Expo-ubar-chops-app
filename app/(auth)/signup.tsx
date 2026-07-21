@@ -2,7 +2,7 @@ import Button from '@/components/ui/Button';
 import FormInput from '@/components/ui/FormInput';
 import { BorderRadius, BrandColors, FontFamily, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
-import { getHomeRoute, normalizeUserType } from '@/lib/authRoutes';
+import { AppUserType, getHomeRoute, normalizeUserType } from '@/lib/authRoutes';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
@@ -18,16 +18,23 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+const ROLE_OPTIONS: { label: string; userType: AppUserType; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { label: 'Customer', userType: 'customer', icon: 'person-outline' },
+  { label: 'Vendor', userType: 'vendor', icon: 'storefront-outline' },
+  { label: 'Rider', userType: 'rider', icon: 'bicycle-outline' },
+];
+
 export default function SignupScreen() {
   const { userType } = useLocalSearchParams<{ userType: string }>();
   const { signUp } = useAuth();
-  const selectedUserType = normalizeUserType(userType) ?? 'customer';
+  const initialRole = normalizeUserType(userType) ?? 'customer';
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [selectedRole, setSelectedRole] = useState<AppUserType>(initialRole);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -54,7 +61,7 @@ export default function SignupScreen() {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       phone: phone.trim(),
-      userType: selectedUserType,
+      userType: selectedRole,
     });
     setLoading(false);
     if (error) {
@@ -70,12 +77,12 @@ export default function SignupScreen() {
           firstName: firstName.trim(),
           lastName: lastName.trim(),
           phone: phone.trim(),
-          userType: selectedUserType,
+          userType: selectedRole,
         },
       });
       return;
     }
-    router.replace(getHomeRoute(signedUpUserType ?? selectedUserType));
+    router.replace(getHomeRoute(signedUpUserType ?? selectedRole));
   }
 
   return (
@@ -98,6 +105,32 @@ export default function SignupScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          <View style={styles.roleCard}>
+            <Text style={styles.roleTitle}>Create account as</Text>
+            <View style={styles.roleRow}>
+              {ROLE_OPTIONS.map((role) => {
+                const isActive = selectedRole === role.userType;
+                return (
+                  <TouchableOpacity
+                    key={role.userType}
+                    style={[styles.roleChip, isActive && styles.roleChipActive]}
+                    onPress={() => setSelectedRole(role.userType)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons
+                      name={role.icon}
+                      size={16}
+                      color={isActive ? BrandColors.primary : BrandColors.textSecondary}
+                    />
+                    <Text style={[styles.roleChipText, isActive && styles.roleChipTextActive]}>
+                      {role.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
           <View style={styles.card}>
             {/* Icon */}
             <View style={styles.iconCircle}>
@@ -187,7 +220,7 @@ export default function SignupScreen() {
           <View style={styles.signinRow}>
             <Text style={styles.signinText}>Already have an account?</Text>
             <TouchableOpacity
-              onPress={() => router.replace({ pathname: '/login', params: { userType: selectedUserType } })}
+              onPress={() => router.replace({ pathname: '/login', params: { userType: selectedRole } })}
               activeOpacity={0.7}
             >
               <Text style={styles.signinLink}>  Sign in</Text>
@@ -231,6 +264,52 @@ const styles = StyleSheet.create({
   scroll: {
     flexGrow: 1,
     paddingBottom: Spacing.xl,
+  },
+  roleCard: {
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
+    backgroundColor: BrandColors.cardBg,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 20,
+    elevation: 4,
+  },
+  roleTitle: {
+    fontFamily: FontFamily.bold,
+    fontSize: 14,
+    color: BrandColors.textSecondary,
+    marginBottom: Spacing.sm,
+  },
+  roleRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+  },
+  roleChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: BrandColors.divider,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 8,
+    backgroundColor: BrandColors.background,
+  },
+  roleChipActive: {
+    borderColor: BrandColors.primary,
+    backgroundColor: BrandColors.iconCircleBg,
+  },
+  roleChipText: {
+    fontFamily: FontFamily.medium,
+    fontSize: 13,
+    color: BrandColors.textSecondary,
+  },
+  roleChipTextActive: {
+    color: BrandColors.primary,
   },
   card: {
     marginHorizontal: Spacing.md,
