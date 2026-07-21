@@ -3,7 +3,8 @@ import Divider from '@/components/ui/Divider';
 import FormInput from '@/components/ui/FormInput';
 import { BorderRadius, BrandColors, FontFamily, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
-import { router } from 'expo-router';
+import { getHomeRoute, normalizeUserType } from '@/lib/authRoutes';
+import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -18,7 +19,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function LoginScreen() {
+  const params = useLocalSearchParams<{ userType?: string }>();
   const { signIn } = useAuth();
+  const selectedUserType = normalizeUserType(params.userType);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -40,15 +43,25 @@ export default function LoginScreen() {
     }
     setErrors({});
     setLoading(true);
-    const { error, requiresVerification, email: verifiedEmail } = await signIn(
+    const {
+      error,
+      requiresVerification,
+      email: verifiedEmail,
+      userType: signedInUserType,
+    } = await signIn(
       email.trim(),
       password,
+      selectedUserType ?? undefined,
     );
     setLoading(false);
     if (requiresVerification) {
       router.replace({
         pathname: '/(auth)/verify-email',
-        params: { email: verifiedEmail ?? email.trim(), password },
+        params: {
+          email: verifiedEmail ?? email.trim(),
+          password,
+          ...(selectedUserType ? { userType: selectedUserType } : {}),
+        },
       });
       return;
     }
@@ -56,7 +69,7 @@ export default function LoginScreen() {
       Alert.alert('Login failed', error);
       return;
     }
-    router.replace('/(tabs)');
+    router.replace(getHomeRoute(signedInUserType));
   }
 
   function handleForgotPassword() {

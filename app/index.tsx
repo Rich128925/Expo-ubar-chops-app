@@ -2,6 +2,7 @@ import { Redirect } from 'expo-router';
 import { View, ActivityIndicator } from 'react-native';
 import { useAuth } from '@/context/AuthContext';
 import { BrandColors } from '@/constants/theme';
+import { getHomeRoute } from '@/lib/authRoutes';
 
 export default function Index() {
   const { user, loading } = useAuth();
@@ -14,5 +15,5 @@ export default function Index() {
     );
   }
 
-  return <Redirect href={user ? '/(tabs)' : '/login'} />;
+  return <Redirect href={user ? getHomeRoute(user.profile?.userType) : '/login'} />;
 }

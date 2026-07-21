@@ -2,6 +2,7 @@ import Button from '@/components/ui/Button';
 import FormInput from '@/components/ui/FormInput';
 import { BorderRadius, BrandColors, FontFamily, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
+import { getHomeRoute, normalizeUserType } from '@/lib/authRoutes';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -18,19 +19,30 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function VerifyEmailScreen() {
-  const params = useLocalSearchParams<{ email?: string; password?: string; userType?: string }>();
+  const params = useLocalSearchParams<{
+    email?: string;
+    password?: string;
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    userType?: string;
+  }>();
   const { verifyEmail, resendVerificationCode } = useAuth();
 
   const email = typeof params.email === 'string' ? params.email : '';
+  const selectedUserType = normalizeUserType(params.userType);
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
 
   useEffect(() => {
     if (!email) {
-      router.replace('/(auth)/login');
+      router.replace({
+        pathname: '/(auth)/login',
+        params: selectedUserType ? { userType: selectedUserType } : {},
+      });
     }
-  }, [email]);
+  }, [email, selectedUserType]);
 
   async function handleVerify() {
     if (!email.trim() || otp.trim().length !== 6) {
@@ -39,7 +51,12 @@ export default function VerifyEmailScreen() {
     }
 
     setLoading(true);
-    const { error } = await verifyEmail(email.trim(), otp.trim());
+    const { error, userType } = await verifyEmail(email.trim(), otp.trim(), {
+      firstName: typeof params.firstName === 'string' ? params.firstName : undefined,
+      lastName: typeof params.lastName === 'string' ? params.lastName : undefined,
+      phone: typeof params.phone === 'string' ? params.phone : undefined,
+      userType: selectedUserType ?? undefined,
+    });
     setLoading(false);
 
     if (error) {
@@ -47,7 +64,7 @@ export default function VerifyEmailScreen() {
       return;
     }
 
-    router.replace('/(tabs)');
+    router.replace(getHomeRoute(userType ?? selectedUserType));
   }
 
   async function handleResend() {
@@ -99,7 +116,16 @@ export default function VerifyEmailScreen() {
               <Text style={styles.resendText}>{resending ? 'Sending…' : 'Resend code'}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => router.replace('/(auth)/login')} style={styles.backBtn} activeOpacity={0.7}>
+            <TouchableOpacity
+              onPress={() =>
+                router.replace({
+                  pathname: '/(auth)/login',
+                  params: selectedUserType ? { userType: selectedUserType } : {},
+                })
+              }
+              style={styles.backBtn}
+              activeOpacity={0.7}
+            >
               <Text style={styles.backText}>Back to sign in</Text>
             </TouchableOpacity>
           </View>

@@ -2,6 +2,7 @@ import Button from '@/components/ui/Button';
 import FormInput from '@/components/ui/FormInput';
 import { BorderRadius, BrandColors, FontFamily, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
+import { getHomeRoute, normalizeUserType } from '@/lib/authRoutes';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
@@ -20,6 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function SignupScreen() {
   const { userType } = useLocalSearchParams<{ userType: string }>();
   const { signUp } = useAuth();
+  const selectedUserType = normalizeUserType(userType) ?? 'customer';
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -46,13 +48,13 @@ export default function SignupScreen() {
     }
     setErrors({});
     setLoading(true);
-    const { error, requiresVerification } = await signUp({
+    const { error, requiresVerification, userType: signedUpUserType } = await signUp({
       email: email.trim(),
       password,
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       phone: phone.trim(),
-      userType: userType ?? 'customer',
+      userType: selectedUserType,
     });
     setLoading(false);
     if (error) {
@@ -65,12 +67,15 @@ export default function SignupScreen() {
         params: {
           email: email.trim(),
           password,
-          userType: userType ?? 'customer',
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          phone: phone.trim(),
+          userType: selectedUserType,
         },
       });
       return;
     }
-    router.replace('/(auth)/login');
+    router.replace(getHomeRoute(signedUpUserType ?? selectedUserType));
   }
 
   return (
@@ -181,7 +186,10 @@ export default function SignupScreen() {
 
           <View style={styles.signinRow}>
             <Text style={styles.signinText}>Already have an account?</Text>
-            <TouchableOpacity onPress={() => router.replace('/login')} activeOpacity={0.7}>
+            <TouchableOpacity
+              onPress={() => router.replace({ pathname: '/login', params: { userType: selectedUserType } })}
+              activeOpacity={0.7}
+            >
               <Text style={styles.signinLink}>  Sign in</Text>
             </TouchableOpacity>
           </View>
